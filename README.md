@@ -23,7 +23,7 @@ This module creates and manages a single **service-endpoint permissions** assign
 
 > **Why it matters:** Service connections hold the keys to your cloud — who may *use*, *create*, or *administer* them is a security control. Declaring those ACEs as code makes them reviewable, reproducible, and least-privilege by construction instead of hand-clicked in the portal.
 
-> ℹ️ This module manages **permissions on** service endpoints — it does **not** create the endpoints themselves. Create endpoints with the `tf-mod-azuredevops-serviceendpoint-*` modules and wire their IDs in here.
+> ℹ️ This module manages **permissions on** service endpoints — it does **not** create the endpoints themselves. Create endpoints with the `terraform-azuredevops-serviceendpoint-*` modules and wire their IDs in here.
 
 ---
 
@@ -45,10 +45,10 @@ This module is a **terminal ACL grant on a service connection** — it consumes 
 
 ```mermaid
 flowchart LR
- project["tf-mod-azuredevops-project<br/>(project_id)"]
- endpoint["tf-mod-azuredevops-serviceendpoint-azure<br/>(serviceendpoint_id, optional)"]
- group["tf-mod-azuredevops-group<br/>(principal descriptor)"]
- perms["tf-mod-azuredevops-serviceendpoint-permissions<br/>(THIS MODULE)"]
+ project["terraform-azuredevops-project<br/>(project_id)"]
+ endpoint["terraform-azuredevops-serviceendpoint-azure<br/>(serviceendpoint_id, optional)"]
+ group["terraform-azuredevops-group<br/>(principal descriptor)"]
+ perms["terraform-azuredevops-serviceendpoint-permissions<br/>(THIS MODULE)"]
 
  project -->|"project_id"| perms
  endpoint -->|"service_endpoint_id"| perms
@@ -58,7 +58,7 @@ flowchart LR
  style project fill:#0078D4,color:#fff
 ```
 
-This module **consumes** `project_id` (from `tf-mod-azuredevops-project`), optionally `serviceendpoint_id` (from a `tf-mod-azuredevops-serviceendpoint-*` module — `null` ⇒ project-wide), and `principal` (a group descriptor from `tf-mod-azuredevops-group`); it **emits** `id` / `serviceendpoint_permissions_id` for audit and access-review tooling — see the [Typical wiring](#-typical-wiring) section. It is a terminal grant with no downstream module consumers in this suite.
+This module **consumes** `project_id` (from `terraform-azuredevops-project`), optionally `serviceendpoint_id` (from a `terraform-azuredevops-serviceendpoint-*` module — `null` ⇒ project-wide), and `principal` (a group descriptor from `terraform-azuredevops-group`); it **emits** `id` / `serviceendpoint_permissions_id` for audit and access-review tooling — see the [Typical wiring](#-typical-wiring) section. It is a terminal grant with no downstream module consumers in this suite.
 
 ---
 
@@ -78,7 +78,7 @@ flowchart TD
 ## 📁 Module Structure
 
 ```
-tf-mod-azuredevops-serviceendpoint-permissions/
+terraform-azuredevops-serviceendpoint-permissions/
 ├── providers.tf # Terraform >= 1.12.0, azuredevops >= 1.0, < 2.0 — no provider{} block
 ├── variables.tf # project_id, serviceendpoint_id, principal, permissions, replace, timeouts
 ├── main.tf # azuredevops_serviceendpoint_permissions.this + dynamic timeouts
@@ -104,7 +104,7 @@ The module declares the provider **requirement** only — it configures **no** `
 
 ```hcl
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -144,16 +144,16 @@ Derived from the module's Emits table — primary output is `id` / `serviceendpo
 |---|---|
 | `id` / `serviceendpoint_permissions_id` | Downstream references; audit / access-review inventory |
 | `project_id` | Sibling project-scoped modules; audit |
-| `serviceendpoint_id` | Correlation back to the `tf-mod-azuredevops-serviceendpoint-*` module that created the endpoint (null ⇒ project-wide) |
+| `serviceendpoint_id` | Correlation back to the `terraform-azuredevops-serviceendpoint-*` module that created the endpoint (null ⇒ project-wide) |
 | `principal` | Audit — the group descriptor that was granted access |
 
 Common inbound wires:
 
 | Input | Source |
 |---|---|
-| `project_id` | `tf-mod-azuredevops-project` (`project_id`) |
-| `serviceendpoint_id` | `tf-mod-azuredevops-serviceendpoint-azure` / `_scm` / `_containers` / `_artifacts` / `_security` / `_generic` (`service_endpoint_id` / `id`) |
-| `principal` | `tf-mod-azuredevops-group` (`descriptor`) or the `azuredevops_group` data source |
+| `project_id` | `terraform-azuredevops-project` (`project_id`) |
+| `serviceendpoint_id` | `terraform-azuredevops-serviceendpoint-azure` / `_scm` / `_containers` / `_artifacts` / `_security` / `_generic` (`service_endpoint_id` / `id`) |
+| `principal` | `terraform-azuredevops-group` (`descriptor`) or the `azuredevops_group` data source |
 
 ---
 
@@ -161,7 +161,7 @@ Common inbound wires:
 
 - **Project-scoped resource.** Service-endpoint permissions live inside a single project and **require** `project_id`. The `ServiceEndpoints` security namespace (ID `49b48001-ca20-4adc-8111-5b60c903a50c`) carries the actions; this module manages one ACE on it. (Org-scoped resources in this suite omit `project_id`; this one does not.)
 - **Single endpoint vs. project-wide.** With `serviceendpoint_id` set, the ACE applies to that one endpoint. With it omitted (`null`), the ACE applies to the **project-level** service-connection node — governing all endpoints, plus the project-only `Create` right. The same five actions exist at both scopes; object-level roles inherit from the project level.
-- **Group principals only.** The provider supports a **group** `descriptor` for `principal` — not individual users. Built-in groups like `[project]\Endpoint Administrators` (Administrator role) and `[project]\Endpoint Creators` (Creator role) are the usual targets; resolve descriptors via the `azuredevops_group` data source or `tf-mod-azuredevops-group`.
+- **Group principals only.** The provider supports a **group** `descriptor` for `principal` — not individual users. Built-in groups like `[project]\Endpoint Administrators` (Administrator role) and `[project]\Endpoint Creators` (Creator role) are the usual targets; resolve descriptors via the `azuredevops_group` data source or `terraform-azuredevops-group`.
 - **Three immutable fields.** `project_id`, `serviceendpoint_id`, and `principal` are force-new — changing any of them destroys and recreates the ACE. They are labelled `# IMMUTABLE` in the variable heredocs. Edit `permissions`/`replace` in place; re-target by recreating.
 - **`replace` is authoritative vs. additive.** `replace = true` (default) makes `permissions` the full set for that principal — unlisted actions reset to inherited/`NotSet`. `replace = false` merges on top of existing ACEs. Prefer `true` for declarative, drift-free ACLs.
 - **Least-privilege by omission.** There is **no default** `permissions` map (at least one entry is required), and omitting an action leaves it inherited rather than forcing `NotSet`. The type system rejects unknown action keys and any state other than `Allow`/`Deny`/`NotSet`.
@@ -178,7 +178,7 @@ Common inbound wires:
 
 ```hcl
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -198,7 +198,7 @@ module "endpoint_perms" {
 # No serviceendpoint_id ⇒ the project-level node (governs all endpoints + Create).
 # Requires Project Administrators.
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id = module.project.project_id
   principal  = data.azuredevops_group.endpoint_creators.descriptor
@@ -217,7 +217,7 @@ module "endpoint_perms" {
 
 ```hcl
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -238,7 +238,7 @@ module "endpoint_perms" {
 
 ```hcl
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -256,7 +256,7 @@ module "endpoint_perms" {
 
 ```hcl
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_prod.service_endpoint_id
@@ -275,7 +275,7 @@ module "endpoint_perms" {
 
 ```hcl
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -295,7 +295,7 @@ module "endpoint_perms" {
 
 ```hcl
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -318,7 +318,7 @@ module "endpoint_perms" {
 
 ```hcl
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -336,17 +336,17 @@ Only the fields you set are rendered; the provider defaults apply otherwise.
 </details>
 
 <details>
-<summary><b>9 · Principal wired from tf-mod-azuredevops-group</b></summary>
+<summary><b>9 · Principal wired from terraform-azuredevops-group</b></summary>
 
 ```hcl
 module "deployers" {
-  source     = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-group?ref=v1.0.0"
+  source     = "git::https://github.com/microsoftexpert/terraform-azuredevops-group?ref=v1.0.0"
   project_id = module.project.project_id
   #... group configuration...
 }
 
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -367,7 +367,7 @@ data "azuredevops_group" "endpoint_admins" {
 }
 
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -397,7 +397,7 @@ data "azuredevops_group" "acl" {
 }
 
 module "endpoint_perms" {
-  source   = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source   = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
   for_each = local.endpoint_acls
 
   project_id         = module.project.project_id
@@ -414,7 +414,7 @@ module "endpoint_perms" {
 ```hcl
 # Lock down who may create/administer endpoints project-wide; grant only Use to deployers.
 module "endpoint_creators_lockdown" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id = module.project.project_id
   principal  = data.azuredevops_group.contributors.descriptor
@@ -435,7 +435,7 @@ module "endpoint_creators_lockdown" {
 
 ```hcl
 module "project" {
-  source             = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-project?ref=v1.0.0"
+  source             = "git::https://github.com/microsoftexpert/terraform-azuredevops-project?ref=v1.0.0"
   name               = "Payments-Platform"
   visibility         = "private"
   version_control    = "Git"
@@ -443,19 +443,19 @@ module "project" {
 }
 
 module "deployers" {
-  source     = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-group?ref=v1.0.0"
+  source     = "git::https://github.com/microsoftexpert/terraform-azuredevops-group?ref=v1.0.0"
   project_id = module.project.project_id
   #... group configuration...
 }
 
 module "serviceendpoint_azure" {
-  source     = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-azure?ref=v1.0.0"
+  source     = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-azure?ref=v1.0.0"
   project_id = module.project.project_id
   #... endpoint configuration...
 }
 
 module "endpoint_perms" {
-  source = "git::https://github.com/microsoftexpert/tf-mod-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
+  source = "git::https://github.com/microsoftexpert/terraform-azuredevops-serviceendpoint-permissions?ref=v1.0.0"
 
   project_id         = module.project.project_id # project-scoped wire-in
   serviceendpoint_id = module.serviceendpoint_azure.service_endpoint_id
@@ -510,7 +510,7 @@ output "endpoint_perms_id" {
 ## 🚀 Runbook
 
 ```powershell
-cd C:\GitHubCode\newazuredevopsmodules\tf-mod-azuredevops-serviceendpoint-permissions
+cd C:\GitHubCode\newazuredevopsmodules\terraform-azuredevops-serviceendpoint-permissions
 terraform init -backend=false
 terraform validate
 terraform fmt -check
@@ -543,7 +543,7 @@ terraform fmt -check
 - [Security namespace and permission reference — ServiceEndpoints namespace](https://learn.microsoft.com/azure/devops/organizations/security/namespace-reference?view=azure-devops#role-based-namespaces-and-permissions)
 - [Service connections overview](https://learn.microsoft.com/azure/devops/pipelines/library/service-endpoints?view=azure-devops)
 - [Provider: `azuredevops_serviceendpoint_permissions`](https://registry.terraform.io/providers/microsoft/azuredevops/latest/docs/resources/serviceendpoint_permissions)
-- Sibling modules: `tf-mod-azuredevops-project`, `tf-mod-azuredevops-group`, `tf-mod-azuredevops-serviceendpoint-azure` (and the other `tf-mod-azuredevops-serviceendpoint-*` modules), `tf-mod-azuredevops-permissions`
+- Sibling modules: `terraform-azuredevops-project`, `terraform-azuredevops-group`, `terraform-azuredevops-serviceendpoint-azure` (and the other `terraform-azuredevops-serviceendpoint-*` modules), `terraform-azuredevops-permissions`
 
 ---
 

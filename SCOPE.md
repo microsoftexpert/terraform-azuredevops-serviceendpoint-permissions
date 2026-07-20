@@ -1,4 +1,4 @@
-# SCOPE — tf-mod-azuredevops-serviceendpoint-permissions
+# SCOPE — terraform-azuredevops-serviceendpoint-permissions
 
 Single-resource module. Manages one Azure DevOps **service-endpoint permissions** assignment —
 a single ACE on the project's `ServiceEndpoints` security namespace
@@ -10,10 +10,10 @@ service-connection permissions either for one specific endpoint or project-wide.
 
 ## Out of scope (consumed by ID / managed elsewhere)
 - `azuredevops_serviceendpoint_*` — the service connections themselves (sibling modules
-  `tf-mod-azuredevops-serviceendpoint-azure` / `_scm` / `_containers` / `_artifacts` / `_security`
+  `terraform-azuredevops-serviceendpoint-azure` / `_scm` / `_containers` / `_artifacts` / `_security`
   / `_generic`). This module sets permissions on an endpoint; it does not create it.
-- `azuredevops_project` — the owning project (sibling `tf-mod-azuredevops-project`).
-- `azuredevops_group` — the principal being granted (sibling `tf-mod-azuredevops-group`, or the
+- `azuredevops_project` — the owning project (sibling `terraform-azuredevops-project`).
+- `azuredevops_group` — the principal being granted (sibling `terraform-azuredevops-group`, or the
   `azuredevops_group` data source for built-in groups). Only the group **descriptor** is consumed.
 - Pipeline-level service-connection authorization (`azuredevops_pipeline_authorization` /
   per-pipeline "Open access" / "Restrict access") — a separate concern, not modelled here.
@@ -22,9 +22,9 @@ service-connection permissions either for one specific endpoint or project-wide.
 ## Consumes
 | Input | Type | Source module |
 |---|---|---|
-| `project_id` | string | `tf-mod-azuredevops-project` (`project_id` output) — **IMMUTABLE** |
-| `serviceendpoint_id` | string | `tf-mod-azuredevops-serviceendpoint-*` (`service_endpoint_id` / `id`), optional — **IMMUTABLE**; `null` ⇒ project-wide |
-| `principal` | string | `tf-mod-azuredevops-group` (`descriptor`) or `azuredevops_group` data source — **IMMUTABLE**; **group** only |
+| `project_id` | string | `terraform-azuredevops-project` (`project_id` output) — **IMMUTABLE** |
+| `serviceendpoint_id` | string | `terraform-azuredevops-serviceendpoint-*` (`service_endpoint_id` / `id`), optional — **IMMUTABLE**; `null` ⇒ project-wide |
+| `principal` | string | `terraform-azuredevops-group` (`descriptor`) or `azuredevops_group` data source — **IMMUTABLE**; **group** only |
 | `permissions` | map(string) | Caller — keys ∈ {Use, Administer, Create, ViewAuthorization, ViewEndpoint}; states ∈ {Allow, Deny, NotSet} |
 | `replace` | bool | Caller — `true` (default) replace / `false` merge |
 
